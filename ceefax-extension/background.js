@@ -123,7 +123,7 @@ browser.alarms.onAlarm.addListener((alarm) => {
 });
 
 // Run unconditionally at script load rather than only inside onInstalled/
-// onStartup — those don't reliably both fire for every way this script can
+// onStartup - those don't reliably both fire for every way this script can
 // (re)start (e.g. clicking "Reload" on an already-loaded temporary add-on in
 // about:debugging), which left the fetch pipeline never kicking off at all.
 browser.alarms.create(REFRESH_ALARM, { periodInMinutes: REFRESH_PERIOD_MINUTES });

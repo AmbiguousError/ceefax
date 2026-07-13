@@ -3,11 +3,11 @@ const ROWS = 25;
 
 // Row 0 of every page reserves its trailing 8 columns for nav.js's live
 // header clock overlay, which repaints them every second regardless of
-// page content — keep this in sync with HEADER_CLOCK_WIDTH in nav.js.
+// page content - keep this in sync with HEADER_CLOCK_WIDTH in nav.js.
 const HEADER_CLOCK_WIDTH = 8;
 const HEADER_SAFE_WIDTH = COLS - HEADER_CLOCK_WIDTH - 1;
 
-// Also referenced directly by background.js (same global scope — see
+// Also referenced directly by background.js (same global scope - see
 // manifest.json's background.scripts load order).
 const WEATHER_CITIES = [
   { name: "Auckland", latitude: -36.8485, longitude: 174.7633, timezone: "Pacific/Auckland", base: 210 },
@@ -143,7 +143,7 @@ function pageHeaderRow(pageNumber, title) {
 
 // Dynamic FastText-style footer: always 4 colored links, excluding whichever
 // top-level section the current page belongs to. Mirrored in nav.js (which
-// can't share this module — different execution context).
+// can't share this module - different execution context).
 const NAV_SECTIONS = [
   { label: "Index", page: 100, color: "red" },
   { label: "News", page: 101, color: "green" },

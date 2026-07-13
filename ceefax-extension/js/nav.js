@@ -5,13 +5,13 @@ const INPUT_RESET_MS = 4000;
 const HISTORY_MAX = 20;
 
 // Row 0 of every page reserves its trailing 8 columns for the live header
-// clock, which repaints them every second regardless of page content — keep
+// clock, which repaints them every second regardless of page content - keep
 // this in sync with HEADER_CLOCK_WIDTH in data.js.
 const HEADER_CLOCK_WIDTH = 8;
 const HEADER_SAFE_WIDTH = COLS - HEADER_CLOCK_WIDTH - 1;
 
 // Must match ARTICLE_PAGE_START/ARTICLE_COUNT/WEATHER_CITIES/REDDIT_SUBREDDITS
-// in background.js/data.js — used only to tell "not fetched yet" (show a
+// in background.js/data.js - used only to tell "not fetched yet" (show a
 // loading page) apart from "not a real page".
 const ARTICLE_PAGE_START = 102;
 const ARTICLE_COUNT = 5;
@@ -57,7 +57,7 @@ function pageHeaderRow(pageNumber, title) {
 
 // Dynamic FastText-style footer: always 4 colored links, excluding whichever
 // top-level section the current page belongs to. Mirrored in data.js (which
-// can't share this module — different execution context).
+// can't share this module - different execution context).
 const NAV_SECTIONS = [
   { label: "Index", page: 100, color: "red" },
   { label: "News", page: 101, color: "green" },
