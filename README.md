@@ -43,7 +43,7 @@ There's no `package.json` / build step beyond that - it's plain JS/CSS/HTML, no 
 - **Data fetching**: `background.js` runs on an `alarms` interval, caching everything in `browser.storage.local`; the New Tab page (`app.js`/`nav.js`) only ever reads from storage, never fetches directly
 - **Page numbers**: `100` index, `101`–`106` news, `200` weather hub (`210`–`267` per-city forecasts), `300` ticker, `400` Reddit hub (`401`–`409` subreddits), `800` clock - the full breakdown is in `project.md`'s decisions log
 
-See [`AGENTS.md`](AGENTS.md) for the locked-in architecture decisions and more detail on the code layout.
+See [`AGENTS.md`](AGENTS.md) for the locked-in architecture decisions and more detail on the code layout, or [`HANDOVER.md`](HANDOVER.md) if you're picking this project up fresh.
 
 ## License
 
