@@ -1,0 +1,19 @@
+:root {
+  --tt-black: #000000;
+  --tt-red: #ff0000;
+  --tt-green: #00ff00;
+  --tt-yellow: #ffff00;
+  --tt-blue: #0000ff;
+  --tt-magenta: #ff00ff;
+  --tt-cyan: #00ffff;
+  --tt-white: #ffffff;
+}
+
+.fg-black   { color: var(--tt-black); }
+.fg-red     { color: var(--tt-red); }
+.fg-green   { color: var(--tt-green); }
+.fg-yellow  { color: var(--tt-yellow); }
+.fg-blue    { color: var(--tt-blue); }
+.fg-magenta { color: var(--tt-magenta); }
+.fg-cyan    { color: var(--tt-cyan); }
+.fg-white   { color: var(--tt-white); }

@@ -1,0 +1,150 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--tt-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#app {
+  position: relative;
+}
+
+.teletext-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(40, 20px);
+  grid-template-rows: repeat(25, 30px);
+  background: var(--tt-black);
+  font-family: 'Teletext2', Consolas, 'Courier New', monospace;
+  font-size: 24px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.teletext-grid.compact-text {
+  font-size: 16px;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 30px;
+}
+
+.cell[data-row="24"] {
+  cursor: pointer;
+}
+
+.crt-effect .teletext-grid {
+  text-shadow: 0 0 2px currentColor;
+}
+
+.crt-effect .teletext-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.15) 0px,
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+}
+
+.page-readout {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 10;
+  padding: 2px 8px;
+  background: var(--tt-black);
+  border: 1px solid var(--tt-white);
+  color: var(--tt-white);
+  font-family: 'Teletext2', Consolas, 'Courier New', monospace;
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 4px;
+}
+
+.numpad {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+}
+
+.numpad-btn {
+  padding: 10px 0;
+  background: var(--tt-black);
+  border: 1px solid var(--tt-cyan);
+  color: var(--tt-cyan);
+  font-family: 'Teletext2', Consolas, 'Courier New', monospace;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.numpad-btn:hover,
+.numpad-btn:active {
+  background: var(--tt-cyan);
+  color: var(--tt-black);
+}
+
+.favorite-indicator {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 10;
+  color: var(--tt-yellow);
+  font-family: 'Teletext2', Consolas, 'Courier New', monospace;
+  font-size: 22px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.beep-toggle {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: var(--tt-black);
+  border: 1px solid var(--tt-magenta);
+  color: var(--tt-magenta);
+  font-family: 'Teletext2', Consolas, 'Courier New', monospace;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.beep-toggle:hover,
+.beep-toggle:active {
+  background: var(--tt-magenta);
+  color: var(--tt-black);
+}
+
+.pause-toggle,
+.next-page-btn {
+  margin-top: 8px;
+  margin-left: 8px;
+  padding: 6px 12px;
+  background: var(--tt-black);
+  border: 1px solid var(--tt-green);
+  color: var(--tt-green);
+  font-family: 'Teletext2', Consolas, 'Courier New', monospace;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.pause-toggle:hover,
+.pause-toggle:active,
+.next-page-btn:hover,
+.next-page-btn:active {
+  background: var(--tt-green);
+  color: var(--tt-black);
+}
