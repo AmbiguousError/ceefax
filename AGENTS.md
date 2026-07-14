@@ -27,7 +27,7 @@ These are fixed, don't revisit without discussion:
 - **Font**: a bitmap teletext font (e.g. Teletext2), not a system font, currently deferred to a `monospace`/`Consolas` fallback stack since no clearly-licensed redistributable teletext webfont was found; see `project.md` decisions log (2026-07-13) before sourcing one.
 - **Article text extraction**: Mozilla's Readability.js is bundled directly and run in the background script against fetched HTML. The native browser Reader Mode API is deliberately *not* used, since it isn't scriptable from extensions.
 - **Data fetching**: `background.js` service worker uses the `alarms` API on an interval, with results cached in `browser.storage.local` (not fetched live on each render).
-- **Page numbering**: 100 = index, 101-1xx = news subpages, 200 = weather hub (210-267 = per-city forecast/day-detail), 300 = ticker, 400 = Reddit hub (401-409 = subreddits), 800 = clock. See `project.md` decisions log (2026-07-13) for the full breakdown.
+- **Page numbering**: 100 = index, 101 = news hub (110/125/140/155/170/185 = per-topic subcategory hub, base+1..+3 = that topic's 3 subcategories, base+4..+12 = that topic's 9 articles), 200 = weather hub (210-267 = per-city forecast/day-detail), 300 = ticker, 400 = Reddit hub (401-409 = subreddits), 800 = clock. See `project.md` decisions log (2026-07-13, 2026-07-14) for the full breakdown.
 
 ## Commands
 

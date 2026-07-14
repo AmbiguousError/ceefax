@@ -1,12 +1,13 @@
-const RSS_FEED_URL = "https://www.theguardian.com/uk/rss";
-
-const ARTICLE_PAGE_START = 102;
-const ARTICLE_COUNT = 5;
-
 const REFRESH_ALARM = "ceefax-refresh";
 const REFRESH_PERIOD_MINUTES = 15;
 
-const REDDIT_FETCH_DELAY_MS = 800;
+// old.reddit.com rate-limits by IP, not by subreddit: live testing (2026-07-14)
+// showed x-ratelimit-remaining drop to 0 after a single request to ANY
+// endpoint, resetting ~44-60s later. At the old 800ms gap, only the first of
+// 9 sequential requests could ever succeed. 65s keeps every request outside
+// the observed window; worst case (8 delays) is ~8.7 min, still comfortably
+// inside the 15-minute refresh cycle.
+const REDDIT_FETCH_DELAY_MS = 65000;
 
 let refreshing = false;
 
@@ -34,34 +35,45 @@ async function fetchArticleText(url) {
 }
 
 async function refreshNews(pages) {
-  let items = [];
-  try {
-    const rssRes = await fetch(RSS_FEED_URL);
-    const xmlText = await rssRes.text();
-    items = parseRssFeed(xmlText);
-  } catch (err) {
-    console.error("Ceefax: RSS fetch failed", err);
-  }
+  const allItems = [];
 
-  if (items.length === 0) return;
+  for (const topic of NEWS_TOPICS) {
+    for (let subIndex = 0; subIndex < topic.subcategories.length; subIndex++) {
+      const sub = topic.subcategories[subIndex];
+      let items = [];
+      try {
+        const rssRes = await fetch(sub.url);
+        if (!rssRes.ok) throw new Error(`HTTP ${rssRes.status}`);
+        const xmlText = await rssRes.text();
+        items = parseRssFeed(xmlText);
+      } catch (err) {
+        console.error(`Ceefax: RSS fetch failed for ${topic.name}/${sub.name}`, err);
+      }
+      if (items.length === 0) continue;
+      allItems.push(...items);
 
-  pages[300] = buildTickerPage(items);
+      const subItems = items.slice(0, ARTICLES_PER_SUBCATEGORY);
+      const subPage = subcategoryPage(topic, subIndex);
+      const subGroup = [subPage, ...subItems.map((_, i) => subcategoryArticlePage(topic, subIndex, i))];
 
-  const articleItems = items.slice(0, ARTICLE_COUNT);
-  const newsGroup = [101, ...articleItems.map((_, i) => ARTICLE_PAGE_START + i)];
-
-  pages[101] = { ...buildHeadlinesPage(items, ARTICLE_PAGE_START), subpages: newsGroup };
-  for (let i = 0; i < articleItems.length; i++) {
-    const item = articleItems[i];
-    const pageNum = ARTICLE_PAGE_START + i;
-    try {
-      const articleText = await fetchArticleText(item.link);
-      pages[pageNum] = { ...buildArticlePage(pageNum, item, articleText || item.description), subpages: newsGroup };
-    } catch (err) {
-      console.error(`Ceefax: article fetch failed for ${item.link}`, err);
-      pages[pageNum] = { ...buildArticlePage(pageNum, item, item.description), subpages: newsGroup };
+      pages[subPage] = { ...buildSubcategoryHeadlinesPage(topic, sub, subIndex, subItems), subpages: subGroup };
+      for (let i = 0; i < subItems.length; i++) {
+        const item = subItems[i];
+        const pageNum = subcategoryArticlePage(topic, subIndex, i);
+        try {
+          const articleText = await fetchArticleText(item.link);
+          pages[pageNum] = { ...buildArticlePage(pageNum, item, articleText || item.description), subpages: subGroup };
+        } catch (err) {
+          console.error(`Ceefax: article fetch failed for ${item.link}`, err);
+          pages[pageNum] = { ...buildArticlePage(pageNum, item, item.description), subpages: subGroup };
+        }
+      }
     }
+    pages[topic.base] = buildTopicHubPage(topic);
   }
+
+  if (allItems.length > 0) pages[300] = buildTickerPage(allItems);
+  pages[101] = buildNewsHubPage();
 }
 
 async function refreshWeather(pages) {
@@ -81,38 +93,61 @@ async function refreshWeather(pages) {
   pages[200] = buildWeatherHubPage();
 }
 
-async function refreshReddit(pages) {
-  for (const sub of REDDIT_SUBREDDITS) {
+// Persists each subreddit as soon as it's fetched, rather than batching all
+// 9 into one write at the end - the 65s/subreddit pacing this needs to
+// dodge reddit's per-IP rate limit means the last subreddit wouldn't appear
+// until ~8.7 min in otherwise, even though most finish much sooner.
+async function refreshReddit() {
+  let anyPages = false;
+  for (let i = 0; i < REDDIT_SUBREDDITS.length; i++) {
+    const sub = REDDIT_SUBREDDITS[i];
     try {
       const res = await fetch(`https://old.reddit.com/r/${sub.slug}/.rss`);
+      // A 429 still resolves (doesn't reject) with an empty/non-feed body -
+      // without this check, parseRedditFeed would silently return zero
+      // entries and overwrite a previously-good page with an empty one.
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const atomText = await res.text();
       const entries = parseRedditFeed(atomText);
-      pages[sub.page] = buildSubredditPage(sub, entries);
+      if (await persistPages({ [sub.page]: buildSubredditPage(sub, entries) })) anyPages = true;
     } catch (err) {
       console.error(`Ceefax: reddit fetch failed for r/${sub.slug}`, err);
     }
-    await sleep(REDDIT_FETCH_DELAY_MS);
+    if (i < REDDIT_SUBREDDITS.length - 1) await sleep(REDDIT_FETCH_DELAY_MS);
   }
-  pages[400] = buildRedditHubPage();
+  if (await persistPages({ 400: buildRedditHubPage() })) anyPages = true;
+  return anyPages;
+}
+
+async function persistPages(newPages) {
+  if (Object.keys(newPages).length === 0) return false;
+  const { pages: existing } = await browser.storage.local.get("pages");
+  await browser.storage.local.set({ pages: { ...(existing || {}), ...newPages } });
+  return true;
 }
 
 async function refreshAll() {
   if (refreshing) return;
   refreshing = true;
   try {
-    const pages = {};
+    // Persisted per section, not once at the end - reddit's own fetch
+    // pacing (65s/subreddit, ~8.7 min worst case) would otherwise hold
+    // news and weather's already-ready content hostage behind it, leaving
+    // every page showing "FETCHING LATEST DATA" for minutes after every
+    // refresh instead of just the still-pending reddit pages.
+    let anyPages = false;
 
-    await refreshNews(pages);
-    await refreshWeather(pages);
-    await refreshReddit(pages);
+    const newsPages = {};
+    await refreshNews(newsPages);
+    if (await persistPages(newsPages)) anyPages = true;
 
-    if (Object.keys(pages).length > 0) {
-      const { pages: existing } = await browser.storage.local.get("pages");
-      await browser.storage.local.set({
-        pages: { ...(existing || {}), ...pages },
-        lastUpdated: Date.now(),
-      });
-    }
+    const weatherPages = {};
+    await refreshWeather(weatherPages);
+    if (await persistPages(weatherPages)) anyPages = true;
+
+    if (await refreshReddit()) anyPages = true;
+
+    if (anyPages) await browser.storage.local.set({ lastUpdated: Date.now() });
   } finally {
     refreshing = false;
   }

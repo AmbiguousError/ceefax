@@ -9,6 +9,80 @@ const HEADER_SAFE_WIDTH = COLS - HEADER_CLOCK_WIDTH - 1;
 
 // Also referenced directly by background.js (same global scope - see
 // manifest.json's background.scripts load order).
+//
+// Three-tier page scheme per topic, mirroring the weather hub/city/day-detail
+// nesting: topic.base = subcategory hub, base+1..+3 = subcategory headline
+// lists (one per entry in `subcategories`, in order), base+4..+12 = that
+// topic's 9 articles (3 per subcategory, grouped in subcategory order - see
+// subcategoryPage()/subcategoryArticlePage() below). Bases are spaced 15
+// apart (13 slots used, 2 spare) so no topic's range reaches the next one -
+// keep it that way if subcategory/article counts ever change.
+const NEWS_TOPICS = [
+  {
+    name: "World news",
+    base: 110,
+    subcategories: [
+      { name: "Europe", url: "https://www.theguardian.com/world/europe-news/rss" },
+      { name: "Americas", url: "https://www.theguardian.com/world/americas/rss" },
+      { name: "Asia", url: "https://www.theguardian.com/world/asia/rss" },
+    ],
+  },
+  {
+    name: "UK news",
+    base: 125,
+    subcategories: [
+      { name: "Politics", url: "https://www.theguardian.com/politics/rss" },
+      { name: "Education", url: "https://www.theguardian.com/education/rss" },
+      { name: "Society", url: "https://www.theguardian.com/society/rss" },
+    ],
+  },
+  {
+    name: "Business",
+    base: 140,
+    subcategories: [
+      { name: "Economics", url: "https://www.theguardian.com/business/economics/rss" },
+      { name: "Banking", url: "https://www.theguardian.com/business/banking/rss" },
+      { name: "Markets", url: "https://www.theguardian.com/business/stock-markets/rss" },
+    ],
+  },
+  {
+    name: "Technology",
+    base: 155,
+    subcategories: [
+      { name: "Internet", url: "https://www.theguardian.com/technology/internet/rss" },
+      { name: "Games", url: "https://www.theguardian.com/games/rss" },
+      { name: "Mobile phones", url: "https://www.theguardian.com/technology/mobilephones/rss" },
+    ],
+  },
+  {
+    name: "Sport",
+    base: 170,
+    subcategories: [
+      { name: "Football", url: "https://www.theguardian.com/football/rss" },
+      { name: "Cricket", url: "https://www.theguardian.com/sport/cricket/rss" },
+      { name: "Rugby union", url: "https://www.theguardian.com/sport/rugby-union/rss" },
+    ],
+  },
+  {
+    name: "Science",
+    base: 185,
+    subcategories: [
+      { name: "Space", url: "https://www.theguardian.com/science/space/rss" },
+      { name: "Physics", url: "https://www.theguardian.com/science/physics/rss" },
+      { name: "Genetics", url: "https://www.theguardian.com/science/genetics/rss" },
+    ],
+  },
+];
+const ARTICLES_PER_SUBCATEGORY = 3;
+
+function subcategoryPage(topic, subIndex) {
+  return topic.base + subIndex + 1;
+}
+
+function subcategoryArticlePage(topic, subIndex, articleIndex) {
+  return topic.base + 4 + subIndex * ARTICLES_PER_SUBCATEGORY + articleIndex;
+}
+
 const WEATHER_CITIES = [
   { name: "Auckland", latitude: -36.8485, longitude: 174.7633, timezone: "Pacific/Auckland", base: 210 },
   { name: "Toronto", latitude: 43.6532, longitude: -79.3832, timezone: "America/Toronto", base: 220 },
@@ -159,18 +233,56 @@ function buildFooterRow(sectionPage) {
   return { runs, targets: candidates.map((s) => s.page) };
 }
 
-function buildHeadlinesPage(items, startPageNum) {
-  const lines = [pageHeaderRow(101, "NEWS HEADLINES")];
+function buildNewsHubPage() {
+  const lines = [pageHeaderRow(101, "NEWS")];
+  lines.push([]);
+  lines.push([run(" Select a topic:", "yellow")]);
+  lines.push([]);
+  const selectableItems = [];
+  for (const topic of NEWS_TOPICS) {
+    selectableItems.push({ row: lines.length, page: topic.base });
+    lines.push([run(` ${topic.base}`, "cyan"), run(` ${topic.name}`, "white")]);
+  }
+
+  while (lines.length < ROWS - 1) lines.push([]);
+  const footer = buildFooterRow(101);
+  lines.push(footer.runs);
+
+  return { page: 101, lines: lines.slice(0, ROWS), footerTargets: footer.targets, selectableItems };
+}
+
+function buildTopicHubPage(topic) {
+  const lines = [pageHeaderRow(topic.base, topic.name.toUpperCase())];
+  lines.push([]);
+  lines.push([run(" Select a category:", "yellow")]);
+  lines.push([]);
+  const selectableItems = [];
+  topic.subcategories.forEach((sub, subIndex) => {
+    const pageNum = subcategoryPage(topic, subIndex);
+    selectableItems.push({ row: lines.length, page: pageNum });
+    lines.push([run(` ${pageNum}`, "cyan"), run(` ${sub.name}`, "white")]);
+  });
+
+  while (lines.length < ROWS - 1) lines.push([]);
+  const footer = buildFooterRow(101);
+  lines.push(footer.runs);
+
+  return { page: topic.base, lines: lines.slice(0, ROWS), footerTargets: footer.targets, selectableItems };
+}
+
+function buildSubcategoryHeadlinesPage(topic, sub, subIndex, items) {
+  const pageNum = subcategoryPage(topic, subIndex);
+  const lines = [pageHeaderRow(pageNum, sub.name.toUpperCase())];
   lines.push([]);
   const selectableItems = [];
 
-  const maxEntries = Math.min(items.length, 20);
+  const maxEntries = Math.min(items.length, ARTICLES_PER_SUBCATEGORY);
   for (let i = 0; i < maxEntries; i++) {
     if (lines.length >= ROWS - 1) break;
-    const pageNum = startPageNum + i;
-    const prefix = ` ${pageNum} `;
+    const articlePageNum = subcategoryArticlePage(topic, subIndex, i);
+    const prefix = ` ${articlePageNum} `;
     const wrapped = wrapText(items[i].title, COLS - prefix.length);
-    selectableItems.push({ row: lines.length, page: pageNum });
+    selectableItems.push({ row: lines.length, page: articlePageNum });
     for (let w = 0; w < wrapped.length && lines.length < ROWS - 1; w++) {
       const linePrefix = w === 0 ? prefix : " ".repeat(prefix.length);
       lines.push([run(linePrefix, "cyan"), run(wrapped[w], "white")]);
@@ -182,7 +294,7 @@ function buildHeadlinesPage(items, startPageNum) {
   const footer = buildFooterRow(101);
   lines.push(footer.runs);
 
-  return { page: 101, lines: lines.slice(0, ROWS), footerTargets: footer.targets, compact: true, selectableItems };
+  return { page: pageNum, lines: lines.slice(0, ROWS), footerTargets: footer.targets, compact: true, selectableItems };
 }
 
 function buildArticlePage(pageNum, item, articleText) {
@@ -345,11 +457,17 @@ function buildRedditHubPage() {
 function buildSubredditPage(sub, entries) {
   const lines = [pageHeaderRow(sub.page, `R/${sub.slug.toUpperCase()}`)];
   lines.push([]);
+  const selectableItems = [];
 
   const maxEntries = Math.min(entries.length, 20);
   for (let i = 0; i < maxEntries; i++) {
     if (lines.length >= ROWS - 1) break;
     const wrapped = wrapText(entries[i].title, COLS - 3);
+    // No internal page number - Enter on a post opens its real reddit.com
+    // permalink in a new tab (see nav.js's activateSelection) rather than
+    // fetching full post text, per the earlier scope decision to skip
+    // per-post extraction (project.md, 2026-07-13).
+    selectableItems.push({ row: lines.length, url: entries[i].link });
     for (let w = 0; w < wrapped.length && lines.length < ROWS - 1; w++) {
       const linePrefix = w === 0 ? " * " : "   ";
       lines.push([run(linePrefix, "cyan"), run(wrapped[w], "white")]);
@@ -361,5 +479,5 @@ function buildSubredditPage(sub, entries) {
   const footer = buildFooterRow(400);
   lines.push(footer.runs);
 
-  return { page: sub.page, lines: lines.slice(0, ROWS), footerTargets: footer.targets, compact: true };
+  return { page: sub.page, lines: lines.slice(0, ROWS), footerTargets: footer.targets, compact: true, selectableItems };
 }

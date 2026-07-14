@@ -10,16 +10,21 @@ const HISTORY_MAX = 20;
 const HEADER_CLOCK_WIDTH = 8;
 const HEADER_SAFE_WIDTH = COLS - HEADER_CLOCK_WIDTH - 1;
 
-// Must match ARTICLE_PAGE_START/ARTICLE_COUNT/WEATHER_CITIES/REDDIT_SUBREDDITS
-// in background.js/data.js - used only to tell "not fetched yet" (show a
-// loading page) apart from "not a real page".
-const ARTICLE_PAGE_START = 102;
-const ARTICLE_COUNT = 5;
+// Must match NEWS_TOPICS/ARTICLES_PER_SUBCATEGORY/WEATHER_CITIES/
+// REDDIT_SUBREDDITS in background.js/data.js - used only to tell "not
+// fetched yet" (show a loading page) apart from "not a real page".
+const NEWS_TOPIC_BASES = [110, 125, 140, 155, 170, 185];
+const NEWS_SUBCATEGORIES_PER_TOPIC = 3;
+const ARTICLES_PER_SUBCATEGORY = 3;
+const NEWS_PAGES_PER_TOPIC =
+  1 + NEWS_SUBCATEGORIES_PER_TOPIC + NEWS_SUBCATEGORIES_PER_TOPIC * ARTICLES_PER_SUBCATEGORY;
 const WEATHER_CITY_BASES = [210, 220, 230, 240, 250, 260];
 const REDDIT_SUBREDDIT_PAGES = [401, 402, 403, 404, 405, 406, 407, 408, 409];
 const KNOWN_DYNAMIC_PAGES = new Set([
   101, 200, 300, 400,
-  ...Array.from({ length: ARTICLE_COUNT }, (_, i) => ARTICLE_PAGE_START + i),
+  ...NEWS_TOPIC_BASES.flatMap((base) =>
+    Array.from({ length: NEWS_PAGES_PER_TOPIC }, (_, i) => base + i)
+  ),
   ...WEATHER_CITY_BASES.flatMap((base) => [0, 1, 2, 3, 4, 5, 6, 7].map((offset) => base + offset)),
   ...REDDIT_SUBREDDIT_PAGES,
 ]);
@@ -80,7 +85,7 @@ function page100Template() {
     [],
     [run("              ", "white"), run("CEEFAX INDEX", "yellow")],
     [],
-    [run(" 101", "cyan"), run(" News Headlines", "white")],
+    [run(" 101", "cyan"), run(" News", "white")],
     [run(" 200", "cyan"), run(" Weather", "white")],
     [run(" 300", "cyan"), run(" Ticker", "white")],
     [run(" 400", "cyan"), run(" Reddit", "white")],
@@ -222,7 +227,12 @@ function moveSelection(delta) {
 function activateSelection() {
   const items = currentPageData && currentPageData.selectableItems;
   if (!items || !items[selectedIndex]) return;
-  navigateTo(items[selectedIndex].page);
+  const item = items[selectedIndex];
+  if (item.url) {
+    browser.tabs.create({ url: item.url }).catch((err) => console.error("Ceefax: opening link failed", err));
+    return;
+  }
+  navigateTo(item.page);
 }
 
 function playBeep() {

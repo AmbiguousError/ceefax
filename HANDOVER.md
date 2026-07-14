@@ -64,8 +64,10 @@ If you change one, grep for the other. There's no build step to keep them in syn
 | Range | What |
 |---|---|
 | 100 | Index (built locally in `nav.js`, not fetched) |
-| 101 | News headlines list |
-| 102-106 | One article each (top 5 Guardian stories, full text via Readability) |
+| 101 | News hub (lists the 6 topics) |
+| 110, 125, 140, 155, 170, 185 | World news / UK news / Business / Technology / Sport / Science - subcategory hub for that topic (lists 3 subcategories) |
+| *topic base* +1 to +3 | That topic's 3 subcategories - headline list (e.g. World news' Europe/Americas/Asia) |
+| *topic base* +4 to +12 | That topic's 9 articles (3 per subcategory), full text via Readability |
 | 200 | Weather hub (lists the 6 cities) |
 | 210, 220, 230, 240, 250, 260 | Auckland / Toronto / London / Santa Barbara / Sydney / Wellington - 7-day overview |
 | *city base* +1 to +7 | That city's day-detail pages (Morning/Day/Night) |
@@ -85,13 +87,16 @@ One quirk if you write your own: Node's `eval()` doesn't leak `const`/`let` decl
 - **`background.js` runs its fetch pipeline unconditionally at top-level script scope**, not inside `onInstalled`/`onStartup`. This was a deliberate fix (see project.md, 2026-07-13) - those events don't reliably fire on every way the script can restart, and a version that only fetched inside them would silently stop working after certain reload paths in `about:debugging`.
 - **The header clock overlay always wins.** `nav.js` repaints row 0's last 8 columns every second regardless of what the page itself put there. Any new page builder that puts content past column 31 on row 0 will have it silently overwritten - keep titles short or truncate them (see `HEADER_SAFE_WIDTH` in both files).
 - **Reddit's `.json` API is blocked (403) but `.rss` works** and is Atom format, not RSS 2.0 (`<entry>`, not `<item>`; `<link href="...">` is an attribute). There's a separate `parseRedditFeed()` for this reason - don't try to reuse `parseRssFeed()` for it.
+- **Reddit rate-limits by IP, not by subreddit.** Live testing (2026-07-14) showed a single request to any `old.reddit.com` endpoint drops `x-ratelimit-remaining` to 0 for ~44-60s. `REDDIT_FETCH_DELAY_MS` is 65000 for this reason - don't reduce it without re-testing, or most of the 9 subreddits will silently come back empty every cycle again.
+- **`background.js` persists per-section, not once at the end.** `refreshNews`/`refreshWeather` each write their own pages as soon as they finish, and `refreshReddit` writes each subreddit immediately after its own fetch (hub last) - `lastUpdated` is set only once, after all three sections are done. This exists because reddit's 65s/subreddit pacing makes its own phase take up to ~8.7 min; a single write at the very end (the original design) meant news and weather - which finish in seconds - were stuck showing "FETCHING LATEST DATA" for the entire reddit phase on every refresh. If you touch `refreshAll()`/`persistPages()`, keep this incremental-write property.
+- **Reddit posts don't navigate to internal pages.** `buildSubredditPage`'s `selectableItems` carry `{ row, url }` instead of `{ row, page }` - Enter opens the real reddit.com permalink in a new tab (`browser.tabs.create`) rather than an internal 3-digit page. `nav.js`'s `activateSelection` branches on whether the selected item has `.url` or `.page`.
 - **No custom `User-Agent` is set on fetches**, deliberately. Firefox's own `fetch()` sends a legitimate browser UA automatically; a custom one is usually stripped anyway.
 - **The bundled font is a placeholder.** No licensed redistributable teletext bitmap font was found; it currently falls back to `Consolas`/monospace. The `font-family` stack already lists `'Teletext2'` first, so dropping in a real licensed `.woff2` later is a one-file change, not a rearchitecture.
 
 ## Open decisions (someone needs to actually decide these)
 
 1. **AMO publishing.** Listed (public/searchable), unlisted (signed but not searchable, share the `.xpi` directly), or stay unsigned/personal-use only. Blocks: whether Guardian's and Reddit's feed reuse terms need a closer look first.
-2. **Reddit rate-limiting in production** - untested at real-world scale. If it becomes a problem, options include spacing requests out further, fetching fewer subreddits per cycle, or refreshing that section less often than every 15 minutes.
+2. **Reddit rate-limiting in production** - the fetch delay was widened to 65s/subreddit (2026-07-14) based on live-observed rate-limit headers, which should let all 9 succeed within the 15-minute cycle (~8.7 min worst case just for reddit). Still not confirmed from a real residential IP over a sustained multi-cycle run - if 429s recur, the IP-wide (not per-subreddit) nature of the limit is the thing to re-check first.
 3. **Whether to rewrite the earliest git commits.** They still contain an AI-assistant co-author trailer that later commits don't. Fixing it means rewriting history and force-pushing over what's already public - deliberately left alone pending an explicit decision, since that's a destructive, one-way operation.
 4. **A real bitmap teletext font**, if you want full visual authenticity rather than the monospace fallback.
 
